@@ -1,7 +1,4 @@
-
-
-
-using Ensek.Context;
+using Ensek;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,21 +9,29 @@ void ConfigureServices(IServiceCollection services)
     var exepath = Path.GetDirectoryName(System.Reflection.Assembly
                                         .GetExecutingAssembly().Location);
 
+    // Load configuration
     var configuration = new ConfigurationBuilder()
                             .SetBasePath(exepath)
-                            .AddJsonFile("appsettings.json").Build();
+                            .AddJsonFile("appsettings.json")
+                            .Build();
 
-    services.AddDbContext<MeterRecordContext>(options =>
+    // Register the DbContext with the configuration
+    services.AddDbContext<EnsekDbContext>(options =>
     {
-        options.UseSqlServer(configuration.GetSection("Ensek").Value);
+        var connectionString = configuration.GetConnectionString("ENSEK");
+        options.UseSqlServer(connectionString);
+
     });
 
+    services.AddScoped<EnsekDbContext>();
 
+    // Add controllers and other services
+    services.AddControllers();
+    services.AddEndpointsApiExplorer();
+    services.AddSwaggerGen();
 }
 
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+ConfigureServices(builder.Services);
 
 var app = builder.Build();
 

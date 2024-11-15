@@ -1,14 +1,14 @@
-﻿using System.Numerics;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Ensek.Model
 {
     public class MeterRecord
     {
-        private int AccountId { get; set; }
+        [Key]
+        public int AccountId { get; set; }
 
-        private DateTime MeterReadingDateTime { get; set; }
+        public DateTime? MeterReadingDateTime { get; set; }
 
-        private Int32 MeterReadValue { get; set; }
-
+        public int? MeterReadValue { get; set; }
     }
 }
