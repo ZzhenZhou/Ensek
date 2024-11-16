@@ -10,11 +10,9 @@ namespace Ensek.Controllers
     {
         private readonly EnsekDbContext _ensekDbContext;
         private readonly ILogger<CsvProcessing> _logger;
-        private readonly helperFunctions _helperFunctions;
 
-        public MeterReadingUploadController(EnsekDbContext context,
-                                            ILogger<CsvProcessing> logger
-                                            )
+        public MeterReadingUploadController(EnsekDbContext context
+                                            , ILogger<CsvProcessing> logger)
         {
             _ensekDbContext = context;
             _logger = logger;
@@ -23,13 +21,20 @@ namespace Ensek.Controllers
         [HttpPost]
         public async Task<IActionResult> UploadMeterReading(IFormFile file)
         {
-            string isFileValid = helperFunctions.ValidateFileFormat(file);
+            string isValidFileFormat = helperFunctions.ValidateFileFormat(file);
+            string isValidFileHeader = helperFunctions.ValidateFileHeader(file);
 
-            if (!string.IsNullOrEmpty(isFileValid))
+
+            if (!string.IsNullOrEmpty(isValidFileFormat))
             {
-                BadRequest(isFileValid);
+                return BadRequest(isValidFileFormat);
             }
-            
+
+            if (!string.IsNullOrEmpty(isValidFileHeader))
+            {
+                return BadRequest(isValidFileHeader);
+            }
+
             using (var stream = new MemoryStream())
             {
                 await file.CopyToAsync(stream);
@@ -37,14 +42,18 @@ namespace Ensek.Controllers
 
                 var csvProcessing = new CsvProcessing(_ensekDbContext, _logger);
 
-                // Process the CSV file
-                (int Successes,int failes) = await csvProcessing.ProcessCsv(stream);
+                (int Successes,List<(int Rownumber, string ErrorMessage)> FailedRows) = await csvProcessing.ProcessCsv(stream);
 
                 return Ok(new
                 {
                     Message = "File uploaded and processed.",
                     SuccessfulWrites = Successes,
-                    FailedWrites = failes
+                    FailedWrites = FailedRows.Select(f => new
+                    {
+                        TotalFailed = FailedRows.Count(),
+                        RowNumber = f.Rownumber.ToString(),
+                        ErrorMessage = f.ErrorMessage
+                    })
                 });
             }
         }

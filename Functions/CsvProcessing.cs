@@ -14,34 +14,34 @@ namespace Ensek.Functions
             _logger= logger;
         }
 
-        public async Task<(int,int)> ProcessCsv(Stream inputStream)
+        public async Task<(int, List<(int, string)>)> ProcessCsv(Stream inputStream)
         {
-            var recordObj = new List<MeterRecord>();
-            int failedCount = 0;
+            List<MeterRecord> recordObj = new List<MeterRecord>();
+            List<(int, string)> failedindex = new List<(int,string)>();
             int successfulWrites = 0;
 
             using (var reader = new StreamReader(inputStream))
             {
-                var index = 0;
+                var index = 1;
+                await reader.ReadLineAsync();
 
                 while (!reader.EndOfStream)
                 {
                     var line = await reader.ReadLineAsync();
-                    index++;
-
-                    // skips the header, also find a way too see if the header matches the data struct
-                    if (index == 1 || line == null)
+                    
+                    if (line == null)
                     {
                         continue;
                     }
 
-                    var values = line.Split(',');
+                    var values =  line.Split(',');
+                    index++;
 
-                    var validationResult = await ValidateMeterReadingAsync(values, _ensekDbContext, _logger);
+                    var (numberOfErrors, errorMessage) = await ValidateMeterReadingAsync(values, _ensekDbContext);
 
-                    if (validationResult>0)
+                    if (numberOfErrors>0)
                     {
-                        failedCount++;
+                        failedindex.Add((index, errorMessage));
                         continue; 
                     }
 
@@ -63,7 +63,7 @@ namespace Ensek.Functions
 
                     await _ensekDbContext.MeterReadings.AddRangeAsync(recordObj);
                     await _ensekDbContext.SaveChangesAsync();
-                     successfulWrites = recordObj.Count;
+                    successfulWrites = recordObj.Count;
                 }
             }
             catch (Exception ex)
@@ -73,19 +73,20 @@ namespace Ensek.Functions
                 throw new Exception("Error saving data to the database.", ex);
             }
 
-            return (successfulWrites, failedCount);
+            return (successfulWrites, failedindex);
         }
 
 
-        public async Task<int> ValidateMeterReadingAsync(string[] values, EnsekDbContext _ensek, ILogger _logger)
+        public async Task<(int numberOfErrors, string errorMessage)> ValidateMeterReadingAsync(string[] values, EnsekDbContext _ensek)
         {
-            int numberOfErrors = 0; 
+            int numberOfErrors = 0;
+            string error = string.Empty;
             // Checks to see if the accountid can be converted to integer
             if (!int.TryParse(values[0], out var accountId))
             {
                 numberOfErrors++;
-                _logger.LogError($"Invalid AccountId: {values[0]}");
-                return numberOfErrors;
+                error = ($"Invalid AccountId: {values[0]}");
+                return (numberOfErrors,error);
             }
 
             var meterReadValueString = values[2];
@@ -93,8 +94,8 @@ namespace Ensek.Functions
             if (meterReadValueString.Length != 5 || !meterReadValueString.All(char.IsDigit))
             {
                 numberOfErrors++;
-                _logger.LogError($"Invalid meter reading value: {meterReadValueString}.");
-                return numberOfErrors;
+                error=($"Invalid meter reading value: {meterReadValueString}.");
+                return (numberOfErrors,error);
             }
 
             var readingDateTime = DateTime.Parse(values[1]);
@@ -102,8 +103,8 @@ namespace Ensek.Functions
             if (await _ensek.MeterReadings.AnyAsync(m => m.AccountId == accountId && m.MeterReadingDateTime == readingDateTime))
             {
                 numberOfErrors++;
-                _logger.LogError($"Duplicate entry found for AccountId {accountId} and DateTime {readingDateTime}.");
-                return numberOfErrors;
+                error = ($"Duplicate entry found for AccountId {accountId} and DateTime {readingDateTime}.");
+                return (numberOfErrors,error);
             }
 
             var existingRead = await _ensek.MeterReadings
@@ -114,11 +115,11 @@ namespace Ensek.Functions
             if (existingRead != null && readingDateTime <= existingRead?.MeterReadingDateTime)
             {
                 numberOfErrors++;
-                _logger.LogError($"Existing entry {existingRead?.MeterReadingDateTime} is older than most recent entry for Accountid {accountId} and DateTime {readingDateTime}");
-                return numberOfErrors;
+                error=($"Existing entry {existingRead?.MeterReadingDateTime} is older than most recent entry for Accountid {accountId} and DateTime {readingDateTime}");
+                return (numberOfErrors, error);
             }
 
-            return numberOfErrors;
+            return (numberOfErrors, error);
         }
 
 
