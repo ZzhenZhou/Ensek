@@ -10,12 +10,15 @@ namespace Ensek.Controllers
     {
         private readonly EnsekDbContext _ensekDbContext;
         private readonly ILogger<CsvProcessing> _logger;
+        private readonly helperFunctions _helperFunctions;
 
-        public MeterReadingUploadController(EnsekDbContext context
-                                            , ILogger<CsvProcessing> logger)
+        public MeterReadingUploadController(EnsekDbContext context,
+                                            ILogger<CsvProcessing> logger,
+                                            helperFunctions helperFunctions)
         {
             _ensekDbContext = context;
             _logger = logger;
+            _helperFunctions = helperFunctions;
         }
 
         [HttpPost]
@@ -40,7 +43,7 @@ namespace Ensek.Controllers
                 await file.CopyToAsync(stream);
                 stream.Position = 0;
 
-                var csvProcessing = new CsvProcessing(_ensekDbContext, _logger);
+                var csvProcessing = new CsvProcessing(_ensekDbContext,_helperFunctions);
 
                 (int Successes,List<(int Rownumber, string ErrorMessage)> FailedRows) = await csvProcessing.ProcessCsv(stream);
 

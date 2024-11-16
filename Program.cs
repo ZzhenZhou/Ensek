@@ -1,4 +1,5 @@
 using Ensek;
+using Ensek.Functions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Serilog;
@@ -24,7 +25,7 @@ void ConfigureServices(IServiceCollection services)
     });
 
     services.AddScoped<EnsekDbContext>();
-
+    services.AddScoped<helperFunctions>();
     services.AddControllers();
     services.AddEndpointsApiExplorer();
     services.AddSwaggerGen();

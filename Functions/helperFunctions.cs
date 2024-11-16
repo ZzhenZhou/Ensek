@@ -4,6 +4,15 @@ namespace Ensek.Functions
 {
     public class helperFunctions
     {
+        private readonly EnsekDbContext _ensekDContext;
+        private readonly ILogger<helperFunctions> _logger;
+        public helperFunctions(EnsekDbContext ensek,
+                               ILogger<helperFunctions> logger
+                              )
+        {
+            _ensekDContext = ensek;
+            _logger = logger;
+        }
         public static string ValidateFileFormat(IFormFile file)
         {
             var fileExtension = Path.GetExtension(file.FileName).ToLower();
@@ -47,6 +56,21 @@ namespace Ensek.Functions
             }
 
             return string.Empty;
+        }
+
+        public async Task<int> SaveBatchAsync(List<MeterRecord> batch)
+        {
+            try
+            {
+                await _ensekDContext.MeterReadings.AddRangeAsync(batch);
+                await _ensekDContext.SaveChangesAsync();
+                return batch.Count;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogCritical(ex.ToString());
+                throw new Exception("Error saving batch to the database.", ex);
+            }
         }
     }
 }

@@ -7,42 +7,42 @@ namespace Ensek.Functions
     public class CsvProcessing
     {
         private readonly EnsekDbContext _ensekDbContext;
-        private readonly ILogger<CsvProcessing> _logger;
-        public CsvProcessing(EnsekDbContext context,ILogger<CsvProcessing> logger)
+        private readonly helperFunctions _helperFunctions;
+        public CsvProcessing(EnsekDbContext context,
+                             helperFunctions helperFunctions)
         {
             _ensekDbContext = context;
-            _logger= logger;
+            _helperFunctions = helperFunctions;
         }
 
         public async Task<(int, List<(int, string)>)> ProcessCsv(Stream inputStream)
         {
             List<MeterRecord> recordObj = new List<MeterRecord>();
-            List<(int, string)> failedindex = new List<(int,string)>();
+            List<(int, string)> failedIndex = new List<(int, string)>();
             int successfulWrites = 0;
+            
+            const int batchSize = 10; 
 
             using (var reader = new StreamReader(inputStream))
             {
                 var index = 1;
-                await reader.ReadLineAsync();
+                await reader.ReadLineAsync(); // Don't read the header as its already been checked to be valid.
 
                 while (!reader.EndOfStream)
                 {
                     var line = await reader.ReadLineAsync();
-                    
-                    if (line == null)
-                    {
-                        continue;
-                    }
 
-                    var values =  line.Split(',');
+                    if (line == null) continue;
+
+                    var values = line.Split(',');
                     index++;
 
                     var (numberOfErrors, errorMessage) = await ValidateMeterReadingAsync(values, _ensekDbContext);
 
-                    if (numberOfErrors>0)
+                    if (numberOfErrors > 0)
                     {
-                        failedindex.Add((index, errorMessage));
-                        continue; 
+                        failedIndex.Add((index, errorMessage));
+                        continue;
                     }
 
                     var record = new MeterRecord()
@@ -53,29 +53,24 @@ namespace Ensek.Functions
                     };
 
                     recordObj.Add(record);
+
+                    
+                    if (recordObj.Count >= batchSize)
+                    {
+                        successfulWrites += await _helperFunctions.SaveBatchAsync(recordObj);
+                        recordObj.Clear();
+                    }
                 }
             }
 
-            try
+            // if less than batchsize, don't batch.
+            if (recordObj.Any())
             {
-                if (recordObj.Any())
-                {
-
-                    await _ensekDbContext.MeterReadings.AddRangeAsync(recordObj);
-                    await _ensekDbContext.SaveChangesAsync();
-                    successfulWrites = recordObj.Count;
-                }
-            }
-            catch (Exception ex)
-            {
-                
-                _logger.LogCritical(ex.ToString());
-                throw new Exception("Error saving data to the database.", ex);
+                successfulWrites += await _helperFunctions.SaveBatchAsync(recordObj);
             }
 
-            return (successfulWrites, failedindex);
+            return (successfulWrites, failedIndex);
         }
-
 
         public async Task<(int numberOfErrors, string errorMessage)> ValidateMeterReadingAsync(string[] values, EnsekDbContext _ensek)
         {
