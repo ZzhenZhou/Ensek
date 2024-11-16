@@ -11,13 +11,11 @@ void ConfigureServices(IServiceCollection services)
     var exepath = Path.GetDirectoryName(System.Reflection.Assembly
                                         .GetExecutingAssembly().Location);
 
-    // Load configuration
     var configuration = new ConfigurationBuilder()
                             .SetBasePath(exepath)
                             .AddJsonFile("appsettings.json")
                             .Build();
 
-    // Register the DbContext with the configuration
     services.AddDbContext<EnsekDbContext>(options =>
     {
         var connectionString = configuration.GetConnectionString("ENSEK");
@@ -27,7 +25,6 @@ void ConfigureServices(IServiceCollection services)
 
     services.AddScoped<EnsekDbContext>();
 
-    // Add controllers and other services
     services.AddControllers();
     services.AddEndpointsApiExplorer();
     services.AddSwaggerGen();
@@ -36,7 +33,6 @@ void ConfigureServices(IServiceCollection services)
 Log.Logger = new LoggerConfiguration()
     .WriteTo.File("logs/log.txt", rollingInterval: RollingInterval.Day)
     .CreateLogger();
-builder.Logging.ClearProviders();
 builder.Host.UseSerilog();
 builder.Logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
 
