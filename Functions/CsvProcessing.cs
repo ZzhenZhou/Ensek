@@ -29,6 +29,7 @@ namespace Ensek.Functions
                     var line = await reader.ReadLineAsync();
                     index++;
 
+                    // skips the header, also find a way too see if the header matches the data struct
                     if (index == 1 || line == null)
                     {
                         continue;
@@ -79,7 +80,6 @@ namespace Ensek.Functions
         {
             int numberOfErrors = 0; 
 
-            // Validate AccountId (must be a valid integer)
             if (!int.TryParse(values[0], out var accountId))
             {
                 numberOfErrors++;
@@ -89,7 +89,6 @@ namespace Ensek.Functions
 
             var meterReadValueString = values[2];
 
-            // Validate MeterReadValue (must be a 5-digit number)
             if (meterReadValueString.Length != 5 || !meterReadValueString.All(char.IsDigit))
             {
                 numberOfErrors++;
@@ -97,7 +96,6 @@ namespace Ensek.Functions
                 return numberOfErrors;
             }
 
-            // Ensure the same entry does not exist (AccountId and MeterReadingDateTime must be unique)
             var readingDateTime = DateTime.Parse(values[1]);
             if (await _ensek.MeterReadings.AnyAsync(m => m.AccountId == accountId && m.MeterReadingDateTime == readingDateTime))
             {
@@ -106,7 +104,6 @@ namespace Ensek.Functions
                 return numberOfErrors;
             }
 
-            // Return the number of errors found
             return numberOfErrors;
         }
 
