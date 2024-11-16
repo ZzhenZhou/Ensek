@@ -20,24 +20,28 @@ namespace Ensek.Functions
             List<MeterRecord> recordObj = new List<MeterRecord>();
             List<(int, string)> failedIndex = new List<(int, string)>();
             int successfulWrites = 0;
-            
-            const int batchSize = 10; 
+            const int batchSize = 10;
 
-            using (var reader = new StreamReader(inputStream))
+            List<int> customerAccountIDs = await _ensekDbContext
+                                        .accountrecords
+                                        .Select(a => a.AccountId)
+                                        .ToListAsync();
+
+            using (StreamReader reader = new StreamReader(inputStream))
             {
-                var index = 1;
+                int index = 1;
                 await reader.ReadLineAsync(); // Don't read the header as its already been checked to be valid.
 
                 while (!reader.EndOfStream)
                 {
-                    var line = await reader.ReadLineAsync();
+                    string? line = await reader.ReadLineAsync();
 
                     if (line == null) continue;
 
-                    var values = line.Split(',');
+                    string[] values = line.Split(',');
                     index++;
 
-                    var (numberOfErrors, errorMessage) = await ValidateMeterReadingAsync(values, _ensekDbContext);
+                    (int numberOfErrors, string errorMessage) = await ValidateMeterReadingAsync(values, customerAccountIDs,  _ensekDbContext); //possible issues with customer being created after readings have been put in
 
                     if (numberOfErrors > 0)
                     {
@@ -45,7 +49,7 @@ namespace Ensek.Functions
                         continue;
                     }
 
-                    var record = new MeterRecord()
+                    MeterRecord record = new MeterRecord()
                     {
                         AccountId = int.Parse(values[0]),
                         MeterReadingDateTime = DateTime.Parse(values[1]),
@@ -72,19 +76,19 @@ namespace Ensek.Functions
             return (successfulWrites, failedIndex);
         }
 
-        public async Task<(int numberOfErrors, string errorMessage)> ValidateMeterReadingAsync(string[] values, EnsekDbContext _ensek)
+        public async Task<(int numberOfErrors, string errorMessage)> ValidateMeterReadingAsync(string[] values, List<int> accounts, EnsekDbContext _ensek)
         {
             int numberOfErrors = 0;
             string error = string.Empty;
             // Checks to see if the accountid can be converted to integer
-            if (!int.TryParse(values[0], out var accountId))
+            if (!int.TryParse(values[0], out int accountId) || !accounts.Contains(accountId))
             {
                 numberOfErrors++;
                 error = ($"Invalid AccountId: {values[0]}");
                 return (numberOfErrors,error);
             }
 
-            var meterReadValueString = values[2];
+            string meterReadValueString = values[2];
             // check to see if the meter value is valid
             if (meterReadValueString.Length != 5 || !meterReadValueString.All(char.IsDigit))
             {
@@ -93,24 +97,25 @@ namespace Ensek.Functions
                 return (numberOfErrors,error);
             }
 
-            var readingDateTime = DateTime.Parse(values[1]);
+            DateTime currentReadingDateTime = DateTime.Parse(values[1]);
             // check for duplicates by the composite key
-            if (await _ensek.MeterReadings.AnyAsync(m => m.AccountId == accountId && m.MeterReadingDateTime == readingDateTime))
+            if (await _ensek.MeterReadings.AnyAsync(m => m.AccountId == accountId && m.MeterReadingDateTime == currentReadingDateTime))
             {
                 numberOfErrors++;
-                error = ($"Duplicate entry found for AccountId {accountId} and DateTime {readingDateTime}.");
+                error = ($"Duplicate entry found for AccountId {accountId} and DateTime {currentReadingDateTime}.");
                 return (numberOfErrors,error);
             }
 
-            var existingRead = await _ensek.MeterReadings
+            MeterRecord? existingRead = await _ensek.MeterReadings
                               .Where(m => m.AccountId == accountId)
                               .OrderByDescending(m => m.MeterReadingDateTime)
                               .FirstOrDefaultAsync();
+
             // looks for existing reading later in time than current one for the same account id
-            if (existingRead != null && readingDateTime <= existingRead?.MeterReadingDateTime)
+            if (existingRead != null && currentReadingDateTime <= existingRead?.MeterReadingDateTime)
             {
                 numberOfErrors++;
-                error=($"Existing entry {existingRead?.MeterReadingDateTime} is older than most recent entry for Accountid {accountId} and DateTime {readingDateTime}");
+                error=($"Existing entry {existingRead?.MeterReadingDateTime} is older than most recent entry for Accountid {accountId} and DateTime {currentReadingDateTime}");
                 return (numberOfErrors, error);
             }
 

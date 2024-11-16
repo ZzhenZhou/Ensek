@@ -4,22 +4,22 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Serilog;
 
-var builder = WebApplication.CreateBuilder(args);
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 void ConfigureServices(IServiceCollection services)
 {
-    var exepath = Path.GetDirectoryName(System.Reflection.Assembly
+    string? exepath = Path.GetDirectoryName(System.Reflection.Assembly
                                         .GetExecutingAssembly().Location);
 
-    var configuration = new ConfigurationBuilder()
+    IConfigurationRoot configuration = new ConfigurationBuilder()
                             .SetBasePath(exepath)
                             .AddJsonFile("appsettings.json")
                             .Build();
 
     services.AddDbContext<EnsekDbContext>(options =>
     {
-        var connectionString = configuration.GetConnectionString("ENSEK");
+        string? connectionString = configuration.GetConnectionString("ENSEK");
         options.UseSqlServer(connectionString);
 
     });
@@ -41,7 +41,7 @@ builder.Logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
 ConfigureServices(builder.Services);
 
 
-var app = builder.Build();
+WebApplication app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
@@ -52,3 +52,10 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
 app.Run();
+
+/*
+ same entry twice, -> composite key lookup
+checks for valid accountid, it is an integer and it does exist in the seeded file
+checks the reading is of length of 5 letters and is all digits.
+ 
+ */

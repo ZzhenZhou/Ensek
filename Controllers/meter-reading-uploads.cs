@@ -38,12 +38,12 @@ namespace Ensek.Controllers
                 return BadRequest(isValidFileHeader);
             }
 
-            using (var stream = new MemoryStream())
+            using (MemoryStream stream = new MemoryStream())
             {
                 await file.CopyToAsync(stream);
                 stream.Position = 0;
 
-                var csvProcessing = new CsvProcessing(_ensekDbContext,_helperFunctions);
+                CsvProcessing csvProcessing = new CsvProcessing(_ensekDbContext,_helperFunctions);
 
                 (int Successes,List<(int Rownumber, string ErrorMessage)> FailedRows) = await csvProcessing.ProcessCsv(stream);
 

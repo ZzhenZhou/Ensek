@@ -15,7 +15,7 @@ namespace Ensek.Functions
         }
         public static string ValidateFileFormat(IFormFile file)
         {
-            var fileExtension = Path.GetExtension(file.FileName).ToLower();
+            string fileExtension = Path.GetExtension(file.FileName).ToLower();
 
             if (fileExtension != ".csv" && fileExtension != ".xlsx")
             {
@@ -27,25 +27,25 @@ namespace Ensek.Functions
 
         public static string ValidateFileHeader(IFormFile file)
         {
-            var expectedHeaders = typeof(MeterRecord)
+            string[] expectedHeaders = typeof(MeterRecord)
                 .GetProperties()
                 .Select(p => p.Name)
                 .ToArray();
 
-            using (var stream = new MemoryStream())
+            using (MemoryStream stream = new MemoryStream())
             {
                 file.CopyToAsync(stream);
                 stream.Position = 0;
 
-                using (var reader = new StreamReader(stream))
+                using (StreamReader reader = new StreamReader(stream))
                 {
-                    var headerLine = reader.ReadLine();
+                    string? headerLine = reader.ReadLine();
                     if (headerLine == null)
                     {
                         return ("No Headers has been found for file.");
                     }
 
-                    var headers = headerLine.Split(',');
+                    string[] headers = headerLine.Split(',');
 
                     if (!headers.SequenceEqual(expectedHeaders, StringComparer.OrdinalIgnoreCase))
                     {
