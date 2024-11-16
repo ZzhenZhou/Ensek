@@ -69,7 +69,7 @@ namespace Ensek.Functions
             catch (Exception ex)
             {
                 
-                _logger.LogCritical(ex.Message);
+                _logger.LogCritical(ex.ToString());
                 throw new Exception("Error saving data to the database.", ex);
             }
 
