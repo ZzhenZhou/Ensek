@@ -6,7 +6,6 @@ using Serilog;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 void ConfigureServices(IServiceCollection services)
 {
     string? exepath = Path.GetDirectoryName(System.Reflection.Assembly
@@ -23,8 +22,6 @@ void ConfigureServices(IServiceCollection services)
         options.UseSqlServer(connectionString);
 
     });
-
-    services.AddScoped<EnsekDbContext>();
     services.AddScoped<helperFunctions>();
     services.AddControllers();
     services.AddEndpointsApiExplorer();
@@ -57,5 +54,12 @@ app.Run();
  same entry twice, -> composite key lookup
 checks for valid accountid, it is an integer and it does exist in the seeded file
 checks the reading is of length of 5 letters and is all digits.
- 
+
+Improvments
+
+non clustered index for the tables
+create the tables using EF migrations. 
+front end to ingest the file.
+unit tests.
+implement a dependency injection service.
  */
