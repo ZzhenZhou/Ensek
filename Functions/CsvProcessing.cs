@@ -17,20 +17,20 @@ namespace Ensek.Functions
 
         public async Task<(int, List<(int, string)>)> ProcessCsv(Stream inputStream)
         {
-            List<MeterRecord> recordObj = new List<MeterRecord>();
+            List<MeterRecord> recordObj = new();
             List<(int, string)> failedIndex = new List<(int, string)>();
             int successfulWrites = 0;
-            const int batchSize = 10;
+            const int batchSize = 30; // process in batches of 30(assuming a month worth of readings).
 
             List<int> customerAccountIDs = await _ensekDbContext
                                         .accountrecords
                                         .Select(a => a.AccountId)
-                                        .ToListAsync();
+                                        .ToListAsync(); // holding it memory as it has a limited size(more efficent in this scenario, but for large account sets, will be more performant querying the database).
 
             using (StreamReader reader = new StreamReader(inputStream))
             {
-                int index = 1;
-                await reader.ReadLineAsync(); // Don't read the header as its already been checked to be valid.
+                await reader.ReadLineAsync(); // Don't read the header as its already been checked to be valid to get to this part of the code.
+                int index = 1; // accounting for header row.
 
                 while (!reader.EndOfStream)
                 {
