@@ -57,5 +57,12 @@ app.Run();
  same entry twice, -> composite key lookup
 checks for valid accountid, it is an integer and it does exist in the seeded file
 checks the reading is of length of 5 letters and is all digits.
- 
+
+Improvments
+
+non clustered index for the tables
+create the tables using EF migrations. 
+front end to ingest the file.
+unit tests.
+implement a dependency injection service.
  */
